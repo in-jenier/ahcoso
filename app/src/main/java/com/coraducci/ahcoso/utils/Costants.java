@@ -15,14 +15,10 @@ public class Costants {
         public static final float SUBJECT_CONFIDENCE_GAP = 0.5f;
         public static final int TEXT_TARGA_LENGTH = 7;
     }
-
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_OBJECT = 1;
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_LABELER = 2;
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_FACES = 3;
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_POSE = 4;
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_SEGMENTATION = 5;
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_TEXT = 6;
-    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_COMPLETE = 7;
+;
+    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_FACES = 1;
+    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_TEXT = 2;
+    public static final int IMAGE_REKOGNITION_DETECTION_ORDER_COMPLETE = 3;
 
     public static final String INPUT_LANGUAGE_DEFAULT = "it";
 
@@ -31,19 +27,11 @@ public class Costants {
     public static final boolean EXTRA_BOOLEAN_VALUE_TRUE = true;
     public static final boolean EXTRA_BOOLEAN_VALUE_FALSE = false;
     public static final String BROADCAST_RECEIVER_PREFIX = "BR->";
-    public static final String BROADCAST_RECEIVER_GENERIC_PREFIX = "BrG->";
 
     public static final int NOTIFY_SERVICE_ID = 101;//it's the same for minor services of app
     public static final String NOTIFY_CHANNEL_ID = "it.havok.ahcoso";
     public static final String NOTIFY_CHANNEL_NAME = "AYOS";
     public static final String NOTIFY_CHANNEL_DESCRIPTION = "Notifies from the services of AYOS";
-
-    public static final int STANDARD_NOTIFY_ICON_SERVIZIO_IDLE = R.drawable.ic_stat_filter_1;
-    public static final int STANDARD_NOTIFY_ICON_SERVIZIO_RUN = R.drawable.ic_stat_looks_one;
-    public static final int STANDARD_NOTIFY_ICON_TTS_IDLE = R.drawable.ic_stat_filter_2;
-    public static final int STANDARD_NOTIFY_ICON_TTS_RUN = R.drawable.ic_stat_looks_two;
-    public static final int STANDARD_NOTIFY_ICON_LOCATION_IDLE = R.drawable.ic_stat_filter_3;
-    public static final int STANDARD_NOTIFY_ICON_LOCATION_RUN = R.drawable.ic_stat_looks_3;
     public static final int STANDARD_NOTIFY_ICON_CAMERA_IDLE = R.drawable.ic_stat_filter_4;
     public static final int STANDARD_NOTIFY_ICON_CAMERA_RUN = R.drawable.ic_stat_looks_4;
 }
