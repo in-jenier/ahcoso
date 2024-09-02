@@ -29,19 +29,11 @@ public class GraphicOverlay {
     public void drawFacesBoxes(List<Face> faces){
         Paint penRect = new Paint();
         penRect.setColor(Color.RED);
-        penRect.setStyle(Paint.Style.STROKE);
+        penRect.setStyle(Paint.Style.FILL);
         penRect.setStrokeWidth(2f);
-
-        Paint penPoint = new Paint();
-        penPoint.setColor(Color.BLUE);
-        penPoint.setStrokeWidth(3f);
 
         for(Face face : faces){
             canvas.drawRect(face.getBoundingBox(), penRect);
-
-            for(FaceLandmark landmark: face.getAllLandmarks()) {
-                canvas.drawPoint(landmark.getPosition().x, landmark.getPosition().y, penPoint);
-            }
         }
     }
     public void drawBoxes(List<Rect> rects){

@@ -16,6 +16,8 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.view.OrientationEventListener;
+import android.view.SurfaceHolder;
+import android.view.View;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
@@ -30,10 +32,12 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
+import androidx.camera.core.SurfaceRequest;
 import androidx.camera.core.impl.UseCaseConfigFactory;
 import androidx.camera.core.resolutionselector.ResolutionSelector;
 import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LifecycleService;
@@ -49,7 +53,6 @@ import com.coraducci.ahcoso.utils.Now;
 import com.coraducci.ahcoso.utils.Preferences;
 import com.coraducci.ahcoso.utils.SendBroadcastTo;
 import com.coraducci.ahcoso.utils.ToastOrLog;
-import com.coraducci.ahcoso.utils.Point;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.common.MlKit;
 import com.google.mlkit.vision.common.InputImage;
@@ -63,7 +66,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
@@ -102,6 +104,8 @@ public class CameraService  extends LifecycleService {
     private GraphicOverlay graphicOverlay;
 
     private Preview preview;
+    private PreviewView previewView;
+    private SurfaceHolder surfaceHolder;
 
     private ImageView ivOnCameraActivity;
 
@@ -113,9 +117,6 @@ public class CameraService  extends LifecycleService {
 
     private boolean mlFaceCompleted = false;
     private boolean mlTextCompleted = false;
-
-    private ArrayList labelsToSaveForObjects;
-    private ArrayList labelsToSaveForLabeler;
 
     private final IBinder binder = new CameraServiceBinder();
 
@@ -159,9 +160,6 @@ public class CameraService  extends LifecycleService {
         cns.sameChannel = true;
         cns.customIcons = false;
         cns.setParams(NOTIFY_NUMBER, SERVICE_ID, CHANNEL_ID, CHANNEL_NAME, CHANNEL_DESCRIPTION);
-
-        labelsToSaveForObjects = new ArrayList(Arrays.asList(Costants.Camera.SAVE_BY_TAG_OBJECT));
-        labelsToSaveForLabeler = new ArrayList(Arrays.asList(Costants.Camera.SAVE_BY_TAG_LABELER));
 
         Messages.setCulture(CONTEXT, Locale.forLanguageTag(sharedPreferences.getString(Preferences.GLOBAL_LANGUAGE, Costants.INPUT_LANGUAGE_DEFAULT)));
 
@@ -211,6 +209,13 @@ public class CameraService  extends LifecycleService {
     /** Methods for clients. */
     public void setImageView(ImageView imageView){
         ivOnCameraActivity = imageView;
+    }
+    /** Methods for clients. */
+    public void setPreviewView(PreviewView preview){
+        previewView = preview;
+    }
+    public void setSurfaceProvider(Preview.SurfaceProvider provider){
+        preview.setSurfaceProvider(provider);
     }
     @Override
     public void onDestroy() {
@@ -380,7 +385,7 @@ public class CameraService  extends LifecycleService {
             case Costants.IMAGE_REKOGNITION_DETECTION_ORDER_COMPLETE:
                 mlAnalizerCurrentStep = Costants.IMAGE_REKOGNITION_DETECTION_ORDER_FACES;
                 if(mainActivityInUse) {
-                    ivOnCameraActivity.setImageBitmap(bitmap);
+                    //ivOnCameraActivity.setImageBitmap(bitmap);
                 }
                 if(imageProxy != null) {
                     imageProxy.close();

@@ -163,7 +163,7 @@ public class SplashActivity extends AppCompatActivity {
             public void run() {
                 openMainActivity();
             }
-        }, 5000);
+        }, 6000);
     }
 
     private void openMainActivity(){

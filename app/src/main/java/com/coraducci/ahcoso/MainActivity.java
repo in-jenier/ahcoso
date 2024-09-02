@@ -45,7 +45,8 @@ public class MainActivity extends AppCompatActivity {
 
     public ImageView ivImage;
 
-    CameraService cameraService;
+    public PreviewView previewView;
+
     boolean boundService = false;
 
 
@@ -55,9 +56,11 @@ public class MainActivity extends AppCompatActivity {
         public void onServiceConnected(ComponentName className, IBinder service) {
             tol.Print(TAG, "onServiceConnected", false, true);
             CameraService.CameraServiceBinder binderService = (CameraService.CameraServiceBinder) service;
-            cameraService = binderService.getService();
+            CameraService cameraService = binderService.getService();
 
-            cameraService.setImageView(ivImage);
+            //cameraService.setImageView(ivImage);
+            cameraService.setSurfaceProvider(previewView.getSurfaceProvider());
+            cameraService.setPreviewView(previewView);
             boundService = true;
         }
 
@@ -92,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
         tol.Print(TAG, "onCreate", false, true);
 
         ivImage = findViewById(R.id.imageViewImage);
+        previewView = findViewById(R.id.previewView);
 
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
