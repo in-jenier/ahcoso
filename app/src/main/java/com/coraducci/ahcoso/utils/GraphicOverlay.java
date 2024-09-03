@@ -17,14 +17,22 @@ import java.util.List;
 
 public class GraphicOverlay {
 
-    private Canvas canvas;
+    private static Canvas canvas = null;
+    private static Bitmap bitmap = null;
 
     public GraphicOverlay() {
 
     }
 
-    public void setCanvas(Bitmap bitmap) {
+    public void setCanvas(Bitmap bmp) {
+        canvas = new Canvas(bmp);
+    }
+    public void setCanvas(int width, int height) {
+        bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         canvas = new Canvas(bitmap);
+    }
+    public Bitmap getCanvas() {
+        return bitmap;
     }
     public void drawFacesBoxes(List<Face> faces){
         Paint penRect = new Paint();
@@ -45,30 +53,8 @@ public class GraphicOverlay {
             canvas.drawRect(rect, penRect);
         }
     }
-    public void drawPolygonWithBlur(List<PoseLandmark> points) {
-        // line at minimum...
-        if (points.size() < 2) {
-            return;
-        }
-
-        // paint
-        Paint polyPaint = new Paint();
-        polyPaint.setColor(Color.BLUE);
-        polyPaint.setStyle(Paint.Style.FILL);
-
-        // path
-        Path polyPath = new Path();
-        polyPath.moveTo(points.get(0).getPosition().x, points.get(0).getPosition().y);
-        for (int i = 1; i < points.size(); i++) {
-            polyPath.lineTo(points.get(i).getPosition().x, points.get(i).getPosition().y);
-        }
-        polyPath.lineTo(points.get(0).getPosition().x, points.get(0).getPosition().y);
-
-        // draw
-        canvas.drawPath(polyPath, polyPaint);
-    }
     public void empty(){
-        canvas.drawColor(Color.BLACK);
+        canvas.drawColor(Color.TRANSPARENT);
     }
     private Float invertImage(Float x){
         return x;
