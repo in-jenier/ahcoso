@@ -15,8 +15,10 @@ import android.hardware.camera2.CameraManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Size;
 import android.view.OrientationEventListener;
 import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -34,6 +36,8 @@ import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.core.SurfaceRequest;
 import androidx.camera.core.impl.UseCaseConfigFactory;
+import androidx.camera.core.resolutionselector.AspectRatioStrategy;
+import androidx.camera.core.resolutionselector.ResolutionFilter;
 import androidx.camera.core.resolutionselector.ResolutionSelector;
 import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import androidx.camera.lifecycle.ProcessCameraProvider;
@@ -66,9 +70,18 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class CameraService  extends LifecycleService {
 
@@ -104,8 +117,9 @@ public class CameraService  extends LifecycleService {
     private GraphicOverlay graphicOverlay;
 
     private Preview preview;
-    private PreviewView previewView;
+    //private PreviewView previewView;
     private SurfaceHolder surfaceHolder;
+    private SurfaceView surfaceView;
 
     private ImageView ivOnCameraActivity;
 
@@ -120,6 +134,7 @@ public class CameraService  extends LifecycleService {
 
     private final IBinder binder = new CameraServiceBinder();
 
+    private Executor executor;
 
     public class CameraServiceBinder extends Binder {
         public CameraService getService() {
@@ -211,9 +226,11 @@ public class CameraService  extends LifecycleService {
         ivOnCameraActivity = imageView;
     }
     /** Methods for clients. */
+    /*
     public void setPreviewView(PreviewView preview){
         previewView = preview;
     }
+    */
     public void setSurfaceProvider(Preview.SurfaceProvider provider){
         preview.setSurfaceProvider(provider);
     }
@@ -285,7 +302,6 @@ public class CameraService  extends LifecycleService {
 
     @SuppressLint("NewApi")
     private void startCamera() {
-
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(CONTEXT);
         cameraProviderFuture.addListener(() -> {
             try {
@@ -306,10 +322,8 @@ public class CameraService  extends LifecycleService {
     public void bindCamera() {
         preview = new Preview.Builder().build();
 
-        int cameraType = CameraSelector.LENS_FACING_BACK;
-
         cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(cameraType)
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
         imageCapture = new ImageCapture.Builder()
@@ -322,6 +336,8 @@ public class CameraService  extends LifecycleService {
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                 .setResolutionSelector(new ResolutionSelector.Builder()
                         .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
+                        .setAllowedResolutionMode(ResolutionSelector.PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION)
                         .build())
                 .build();
         try {
@@ -338,11 +354,13 @@ public class CameraService  extends LifecycleService {
     @RequiresApi(api = Build.VERSION_CODES.P)
     public void streamAnalysis() {
         //tol.Print(TAG, "streamAnalysis", false, true);
-        imageAnalysis.setAnalyzer(CONTEXT.getMainExecutor(), new ImageAnalysis.Analyzer() {
+        imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor(), new ImageAnalysis.Analyzer() {
             @OptIn(markerClass = ExperimentalGetImage.class)
             @Override
             public void analyze(@NonNull ImageProxy proxy) {
                 if (proxy.getImage() != null) {
+                    mlFaceCompleted = false;
+                    mlTextCompleted = false;
                     //ATTENZIONE rotation E' SEMPRE 90
                     int rotation = proxy.getImageInfo().getRotationDegrees();
                     bitmap = proxy.toBitmap();
@@ -355,7 +373,9 @@ public class CameraService  extends LifecycleService {
                     graphicOverlay.setCanvas(bitmap);
                     imageProxy = proxy;
                     inputImage = InputImage.fromBitmap(bitmap, 0);
-                    ML_Manager();
+                    //ML_Manager();
+                    ML_FaceDetector();
+                    ML_TextDetector();
                 }
             }
         });
@@ -385,7 +405,7 @@ public class CameraService  extends LifecycleService {
             case Costants.IMAGE_REKOGNITION_DETECTION_ORDER_COMPLETE:
                 mlAnalizerCurrentStep = Costants.IMAGE_REKOGNITION_DETECTION_ORDER_FACES;
                 if(mainActivityInUse) {
-                    //ivOnCameraActivity.setImageBitmap(bitmap);
+                    ivOnCameraActivity.setImageBitmap(bitmap);
                 }
                 if(imageProxy != null) {
                     imageProxy.close();
@@ -401,11 +421,11 @@ public class CameraService  extends LifecycleService {
         FACE DETECTOR
         */
         //tol.Print(TAG, "faceDetector", false, true);
-        mlFaceCompleted = false;
         FaceDetectorOptions faceDetectorOptions = new FaceDetectorOptions.Builder()
                 .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .setExecutor(Executors.newSingleThreadExecutor())
                 .build();
         FaceDetection.getClient(faceDetectorOptions)
                 .process(inputImage)
@@ -426,9 +446,11 @@ public class CameraService  extends LifecycleService {
         /*
         SEGMENTATION DETECTOR
         */
-        mlTextCompleted = false;
         //tol.Print(TAG, "textDetector", false, true);
-        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        TextRecognizerOptions textRecognizerOptions = new TextRecognizerOptions.Builder()
+                .setExecutor(Executors.newSingleThreadExecutor())
+                .build();
+        TextRecognition.getClient(textRecognizerOptions)
                 .process(inputImage)
                 .addOnSuccessListener(
                         result -> {
@@ -444,7 +466,7 @@ public class CameraService  extends LifecycleService {
                                         if(targa.length() == Costants.Camera.TEXT_TARGA_LENGTH) {
                                             found = true;
                                             rectList.add(element.getBoundingBox());
-                                            tol.Print(TAG, "targa:"+targa, false, true);
+                                            //tol.Print(TAG, "targa:"+targa, false, true);
                                         }
                                         for (Text.Symbol symbol : element.getSymbols()) {
                                             String symbolText = symbol.getText();
@@ -452,7 +474,7 @@ public class CameraService  extends LifecycleService {
                                             if(targa.length() == Costants.Camera.TEXT_TARGA_LENGTH) {
                                                 found = true;
                                                 rectList.add(symbol.getBoundingBox());
-                                                tol.Print(TAG, "targa:"+targa, false, true);
+                                                //tol.Print(TAG, "targa:"+targa, false, true);
                                             }
                                         }
                                     }
@@ -474,15 +496,21 @@ public class CameraService  extends LifecycleService {
     private void waitMLCompleted() {
         //tol.Print(TAG, "waitMLCompleted", false, true);
         if (mlFaceCompleted && mlTextCompleted) {
+            /*
             if (mlFaceDetector) {
                 mlFaceCompleted = false;
             }
             if (mlTextDetector) {
                 mlTextCompleted = false;
             }
-            //OperationsOnImage();
+            */
+            if(mainActivityInUse) {
+                ivOnCameraActivity.setImageBitmap(bitmap);
+            }
+            imageProxy.close();
+            streamAnalysis();
         }
-        ML_Manager();
+        //ML_Manager();
     }
 
     @SuppressLint("NewApi")

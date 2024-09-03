@@ -58,9 +58,9 @@ public class MainActivity extends AppCompatActivity {
             CameraService.CameraServiceBinder binderService = (CameraService.CameraServiceBinder) service;
             CameraService cameraService = binderService.getService();
 
-            //cameraService.setImageView(ivImage);
-            cameraService.setSurfaceProvider(previewView.getSurfaceProvider());
-            cameraService.setPreviewView(previewView);
+            cameraService.setImageView(ivImage);
+            //cameraService.setSurfaceProvider(previewView.getSurfaceProvider());
+            //cameraService.setPreviewView(previewView);
             boundService = true;
         }
 
