@@ -2,11 +2,14 @@ package com.coraducci.ahcoso;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.content.Intent;
+import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,7 +19,6 @@ import androidx.core.content.ContextCompat;
 import com.coraducci.ahcoso.utils.ServiceHelpder;
 import com.coraducci.ahcoso.utils.ToastOrLog;
 
-import java.sql.Time;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -31,12 +33,14 @@ public class SplashActivity extends AppCompatActivity {
     private final int REQUEST_CODE_READ_EXTERNAL_STORAGE = 108;
     private final int REQUEST_CODE_MANAGE_EXTERNAL_STORAGE = 109;
     private final int REQUEST_CODE_POST_NOTIFICATIONS = 111;
+    private final int REQUEST_CODE_MEDIA_PROJECTION = 112;
 
     private Boolean permissionToCamera = false;
     private Boolean permissionToWriteExternalStorage = true;
     private Boolean permissionToReadExternalStorage = true;
     private Boolean permissionToManageExternalStorage = false;
     private Boolean permissionToPostNotification = true;
+    private Boolean permissionToMediaProjection = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,25 +75,31 @@ public class SplashActivity extends AppCompatActivity {
                     permissionToReadExternalStorage = false;
                     ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_CODE_READ_EXTERNAL_STORAGE);
                 }else {
-                    checkPermissionsStep3_1();
+                    checkPermissionsStep33();
                 }
             }
         }else{
-            checkPermissionsStep3_1();
+            checkPermissionsStep33();
         }
     }
-    private void checkPermissionsStep3_1(){
-        tol.Print(TAG, "checkPermissionsStep3_1", false, true);
+    private void checkPermissionsStep33(){
+        tol.Print(TAG, "checkPermissions_33", false, true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(CONTEXT, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissionToPostNotification = false;
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_CODE_POST_NOTIFICATIONS);
             }else{
-                AvviaServizio();
+                checkPermissionsStep34();
             }
         }else {
-            tol.Print(TAG, "READY", true, true);
-            openMainActivity();
+            checkPermissionsStep34();
+        }
+    }
+    private void checkPermissionsStep34(){
+        tol.Print(TAG, "checkPermissions_34", false, true);
+        if(!permissionToMediaProjection) {
+            MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_MEDIA_PROJECTION);
         }
     }
     @SuppressLint("NewApi")
@@ -175,6 +185,20 @@ public class SplashActivity extends AppCompatActivity {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
         );
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        tol.Print(TAG, "requestCode:" + requestCode, false, true);
+        tol.Print(TAG, "resultCode:" + resultCode, false, true);
+        if (requestCode == REQUEST_CODE_MEDIA_PROJECTION) {
+            if(resultCode == Activity.RESULT_OK) {
+                permissionToMediaProjection = true;
+                AvviaServizio();
+                checkPermissions();
+            }
+        }
     }
 
 }

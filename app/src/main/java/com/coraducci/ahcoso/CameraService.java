@@ -12,9 +12,15 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.hardware.SensorManager;
 import android.hardware.camera2.CameraManager;
+import android.hardware.display.VirtualDisplay;
+import android.media.MediaRecorder;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.DisplayMetrics;
 import android.util.Size;
 import android.view.OrientationEventListener;
 import android.view.SurfaceHolder;
@@ -101,25 +107,21 @@ public class CameraService  extends LifecycleService {
     private WorkManager workManager;
 
     private ToastOrLog tol;
-    private Camera camera;
-    private CameraManager cameraManager;
     private ProcessCameraProvider cameraProvider;
     private ImageAnalysis imageAnalysis;
     private ImageCapture imageCapture;
     private static ImageProxy imageProxy;
     private Bitmap bitmap;
     private CameraSelector cameraSelector;
-
     private LifecycleOwner lifecycleOwner;
 
     private boolean mainActivityInUse = false;
 
     private int screenOrientation = 0;
     private int previousScreeOrientation = 0;
+
     private GraphicOverlay graphicOverlay;
-
     private Preview preview;
-
     private ImageView ivOnCameraActivity;
 
     private int mlAnalizerCurrentStep = Costants.IMAGE_REKOGNITION_DETECTION_ORDER_FACES;
@@ -294,7 +296,7 @@ public class CameraService  extends LifecycleService {
 
         graphicOverlay = new GraphicOverlay();
 
-        cameraManager = (CameraManager) CONTEXT.getSystemService(Context.CAMERA_SERVICE);
+        //CameraManager cameraManager = (CameraManager) CONTEXT.getSystemService(Context.CAMERA_SERVICE);
 
         executor = Executors.newSingleThreadExecutor();
 
@@ -328,6 +330,7 @@ public class CameraService  extends LifecycleService {
     @SuppressLint({"NewApi", "RestrictedApi"})
     public void bindCamera() {
         preview = new Preview.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .build();
 
         cameraSelector = new CameraSelector.Builder()
@@ -346,10 +349,9 @@ public class CameraService  extends LifecycleService {
                 .build();
         try {
             unbindCamera();
-            String bindType = "bindToLifecycle";
-            camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis, imageCapture);
+            tol.Print(TAG, "bindToLifecycle", false, true);
+            cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis, imageCapture);
 
-            tol.Print(TAG, bindType, false, true);
         } catch (IllegalArgumentException e) {
             tol.Print(TAG, "bindPreview->error:" + e, false, true);
         }
@@ -457,33 +459,20 @@ public class CameraService  extends LifecycleService {
                 .process(inputImage)
                 .addOnSuccessListener(
                         result -> {
-                            String resultText = result.getText();
-                            String targa = resultText.replace(Costants.CHAR_SPACE, Costants.CHAR_NULL).trim();
-                            boolean found = false;
                             List<Rect> rectList = new ArrayList<>();
                             for (Text.TextBlock block : result.getTextBlocks()) {
+                                rectList = checkTarga(rectList, block.getText(), block.getBoundingBox());
                                 for (Text.Line line : block.getLines()) {
+                                    rectList = checkTarga(rectList, line.getText(), line.getBoundingBox());
                                     for (Text.Element element : line.getElements()) {
-                                        String elementText = element.getText();
-                                        targa = elementText.replace(Costants.CHAR_SPACE, Costants.CHAR_NULL).trim();
-                                        if(targa.length() == Costants.Camera.TEXT_TARGA_LENGTH) {
-                                            found = true;
-                                            rectList.add(element.getBoundingBox());
-                                            //tol.Print(TAG, "targa:"+targa, false, true);
-                                        }
+                                        rectList = checkTarga(rectList, element.getText(), element.getBoundingBox());
                                         for (Text.Symbol symbol : element.getSymbols()) {
-                                            String symbolText = symbol.getText();
-                                            targa = symbolText.replace(Costants.CHAR_SPACE, Costants.CHAR_NULL).trim();
-                                            if(targa.length() == Costants.Camera.TEXT_TARGA_LENGTH) {
-                                                found = true;
-                                                rectList.add(symbol.getBoundingBox());
-                                                //tol.Print(TAG, "targa:"+targa, false, true);
-                                            }
+                                            rectList = checkTarga(rectList, symbol.getText(), symbol.getBoundingBox());
                                         }
                                     }
                                 }
                             }
-                            if(found){
+                            if(!rectList.isEmpty()){
                                 graphicOverlay.drawBoxes(rectList);
                             }
                         })
@@ -494,19 +483,19 @@ public class CameraService  extends LifecycleService {
                         });
     }
 
+    private List<Rect> checkTarga(List<Rect> rects, String test, Rect box){
+        test = test.replace(Costants.CHAR_SPACE, Costants.CHAR_NULL).trim();
+        if(test.length() == Costants.Camera.TEXT_TARGA_LENGTH) {
+            rects.add(box);
+        }
+        return rects;
+    }
+
 
     @SuppressLint("NewApi")
     private void waitMLCompleted() {
         //tol.Print(TAG, "waitMLCompleted", false, true);
         if (mlFaceCompleted && mlTextCompleted) {
-            /*
-            if (mlFaceDetector) {
-                mlFaceCompleted = false;
-            }
-            if (mlTextDetector) {
-                mlTextCompleted = false;
-            }
-            */
             if(mainActivityInUse) {
                 ivOnCameraActivity.setImageBitmap(graphicOverlay.getCanvas());
             }
