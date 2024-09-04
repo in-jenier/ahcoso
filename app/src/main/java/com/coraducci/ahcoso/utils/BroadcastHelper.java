@@ -26,6 +26,7 @@ public class BroadcastHelper {
 
     public static final String ACTIVITY_MAIN = "1000";//"activityMain"
     public static final String ACTIVITY_MAIN_EXTRA_IN_USE = "1001";
+    public static final String ACTIVITY_MAIN_EXTRA_START_RECORDING = "1002";
 
     public BroadcastHelper(String extra, int type, String value) {
         this.extra = extra;

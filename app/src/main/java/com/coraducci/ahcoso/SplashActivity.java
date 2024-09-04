@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.ApkChecksum;
 import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
@@ -33,14 +34,12 @@ public class SplashActivity extends AppCompatActivity {
     private final int REQUEST_CODE_READ_EXTERNAL_STORAGE = 108;
     private final int REQUEST_CODE_MANAGE_EXTERNAL_STORAGE = 109;
     private final int REQUEST_CODE_POST_NOTIFICATIONS = 111;
-    private final int REQUEST_CODE_MEDIA_PROJECTION = 112;
 
-    private Boolean permissionToCamera = false;
+    private Boolean permissionToCamera = true;
     private Boolean permissionToWriteExternalStorage = true;
     private Boolean permissionToReadExternalStorage = true;
-    private Boolean permissionToManageExternalStorage = false;
+    private Boolean permissionToManageExternalStorage = true;
     private Boolean permissionToPostNotification = true;
-    private Boolean permissionToMediaProjection = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,14 +57,14 @@ public class SplashActivity extends AppCompatActivity {
     private void checkPermissions(){
         tol.Print(TAG, "checkPermissions", false, true);
         if (ContextCompat.checkSelfPermission(CONTEXT, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionToCamera = false;
             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, REQUEST_CODE_CAMERA);
         } else {
-            permissionToCamera = true;
             checkPermissionsStep1();
         }
     }
     private void checkPermissionsStep1(){
-        tol.Print(TAG, "checkPermissionsStep1", false, true);
+        tol.Print(TAG, "checkPermissionsStep_1", false, true);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             if (ContextCompat.checkSelfPermission(CONTEXT, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 permissionToWriteExternalStorage = false;
@@ -89,17 +88,10 @@ public class SplashActivity extends AppCompatActivity {
                 permissionToPostNotification = false;
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_CODE_POST_NOTIFICATIONS);
             }else{
-                checkPermissionsStep34();
+                AvviaServizio();
             }
         }else {
-            checkPermissionsStep34();
-        }
-    }
-    private void checkPermissionsStep34(){
-        tol.Print(TAG, "checkPermissions_34", false, true);
-        if(!permissionToMediaProjection) {
-            MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-            startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_MEDIA_PROJECTION);
+            AvviaServizio();
         }
     }
     @SuppressLint("NewApi")
@@ -149,7 +141,7 @@ public class SplashActivity extends AppCompatActivity {
                 && permissionToReadExternalStorage
                 && permissionToPostNotification){
             tol.Print(TAG, "permissionsGranted", true, true);
-            checkPermissions();
+            AvviaServizio();
         }else{
             checkPermissions();
         }
@@ -177,7 +169,6 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void openMainActivity(){
-
         //tol.Print(TAG, "openMainActivity", true, true);
         finish();
         startActivity(new Intent(CONTEXT, MainActivity.class)
@@ -185,20 +176,6 @@ public class SplashActivity extends AppCompatActivity {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
         );
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        tol.Print(TAG, "requestCode:" + requestCode, false, true);
-        tol.Print(TAG, "resultCode:" + resultCode, false, true);
-        if (requestCode == REQUEST_CODE_MEDIA_PROJECTION) {
-            if(resultCode == Activity.RESULT_OK) {
-                permissionToMediaProjection = true;
-                AvviaServizio();
-                checkPermissions();
-            }
-        }
     }
 
 }

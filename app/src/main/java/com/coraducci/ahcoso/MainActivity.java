@@ -2,6 +2,7 @@ package com.coraducci.ahcoso;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,6 +14,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
+import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
@@ -26,6 +28,7 @@ import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.WindowMetrics;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -47,6 +50,8 @@ import com.coraducci.ahcoso.utils.Types;
 
 import java.io.File;
 import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -62,12 +67,14 @@ public class MainActivity extends AppCompatActivity {
 
     boolean boundService = false;
 
-    private static final int CAST_PERMISSION_CODE = 22;
+    private final int REQUEST_CODE_MEDIA_PROJECTION = 112;
     private DisplayMetrics mDisplayMetrics;
     private MediaProjection mMediaProjection;
     private VirtualDisplay mVirtualDisplay;
     private MediaRecorder mMediaRecorder;
     private MediaProjectionManager mProjectionManager;
+    private boolean permissionGranted = false;
+    private boolean virtualDisplay = false;
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @SuppressLint("RestrictedApi")
@@ -102,6 +109,12 @@ public class MainActivity extends AppCompatActivity {
             if (intent.hasExtra(extra)) {
                 tol.Print(TAG, Costants.BROADCAST_RECEIVER_PREFIX +extra, false, true);
             }
+            extra = BroadcastHelper.ACTIVITY_MAIN_EXTRA_START_RECORDING;
+            if (intent.hasExtra(extra)) {
+                tol.Print(TAG, Costants.BROADCAST_RECEIVER_PREFIX +extra, false, true);
+                prepareRecording();
+                startRecording();
+            }
         }
     };
 
@@ -111,8 +124,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         CONTEXT = getApplicationContext();
-
-        SharedPreferences sharedPreferences = CONTEXT.getSharedPreferences(Costants.BUCKET, Context.MODE_PRIVATE);
 
         tol = new ToastOrLog(CONTEXT);
         //tol.enable = sharedPreferences.getBoolean(Preferences.LOG_ENABLE, false);
@@ -132,8 +143,6 @@ public class MainActivity extends AppCompatActivity {
         mProjectionManager = (MediaProjectionManager) getSystemService (Context.MEDIA_PROJECTION_SERVICE);
         mDisplayMetrics = new DisplayMetrics();
 
-        getWindowManager().getDefaultDisplay().getMetrics(mDisplayMetrics);
-
         mMediaRecorder = new MediaRecorder();
         mMediaRecorder.setOnErrorListener(new MediaRecorder.OnErrorListener() {
             @Override
@@ -143,7 +152,27 @@ public class MainActivity extends AppCompatActivity {
                 tol.Print(TAG, "extra:"+extra, false, true);
             }
         });
+        mMediaRecorder.setOnInfoListener(new MediaRecorder.OnInfoListener() {
+            @Override
+            public void onInfo(MediaRecorder mr, int what, int extra) {
+                tol.Print(TAG, "nr:"+mr, false, true);
+                tol.Print(TAG, "what:"+what, false, true);
+                tol.Print(TAG, "extra:"+extra, false, true);
+                if(what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED){
+                    //stopRecording();
+                    new Timer().schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            SendBroadcastTo sendBroadcastTo = new SendBroadcastTo(CONTEXT, BroadcastHelper.ACTIVITY_MAIN);
+                            sendBroadcastTo.addExtra(new BroadcastHelper(BroadcastHelper.ACTIVITY_MAIN_EXTRA_START_RECORDING, Types.BOOLEAN, true));
+                            sendBroadcastTo.send();
+                        }
+                    }, 1000);
+                }
+            }
+        });
 
+        checkPermissionsStep34();
     }
 
     @Override
@@ -166,15 +195,13 @@ public class MainActivity extends AppCompatActivity {
         registerReceiver(broadcastReceiver, intentFilter);
 
         sendActivityInUse(Costants.EXTRA_BOOLEAN_VALUE_TRUE);
-
-        prepareRecording();
-        startRecording();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         tol.Print(TAG, "onPause", false, true);
+
 
         if(boundService) {
             unbindService(serviceConnection);
@@ -191,8 +218,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        tol.Print(TAG, "onDestroy", false, true);
         stopRecording();
+
+        tol.Print(TAG, "onDestroy", false, true);
     }
     private void setImageOnView(Bitmap bitmap){
         ivImage.setImageBitmap(bitmap);
@@ -205,6 +233,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void prepareRecording() {
+        getWindowManager().getDefaultDisplay().getMetrics(mDisplayMetrics);
 
         String directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).getAbsolutePath() + File.separator;
         tol.Print(TAG, "path:"+directory, false, true);
@@ -219,19 +248,21 @@ public class MainActivity extends AppCompatActivity {
         String filePath = directory + videoName;
         tol.Print(TAG, "file:"+filePath, false, true);
 
-        int width = mDisplayMetrics.widthPixels;
-        int height = mDisplayMetrics.heightPixels;
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         //mMediaRecorder.setVideoEncodingBitRate(512 * 1000);
+        //CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
+        //profile.videoFrameWidth = mDisplayMetrics.widthPixels;
+        //profile.videoFrameHeight = mDisplayMetrics.heightPixels;
+        //mMediaRecorder.setProfile(profile);
+        //mMediaRecorder.setMaxDuration(10000);
+        mMediaRecorder.setVideoSize(mDisplayMetrics.widthPixels, mDisplayMetrics.heightPixels);
         mMediaRecorder.setVideoFrameRate(30);
-        mMediaRecorder.setVideoSize(width, height);
         mMediaRecorder.setOutputFile(filePath);
 
         try {
             mMediaRecorder.prepare();
-            mMediaRecorder.getSurface();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -239,6 +270,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void startRecording() {
         tol.Print(TAG, "startRecording", false, true);
+        if(!virtualDisplay) {
+            getVirtualDisplay();
+            virtualDisplay = true;
+        }
         mMediaRecorder.start();
     }
     private void stopRecording() {
@@ -254,30 +289,32 @@ public class MainActivity extends AppCompatActivity {
             mMediaProjection.stop();
         }
     }
-
+    private void checkPermissionsStep34(){
+        tol.Print(TAG, "checkPermissions_34", false, true);
+        if(!permissionGranted) {
+            MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_MEDIA_PROJECTION);
+        }
+    }
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != CAST_PERMISSION_CODE) {
-            return;
+        tol.Print(TAG, "requestCode:" + requestCode, false, true);
+        tol.Print(TAG, "resultCode:" + resultCode, false, true);
+        if (requestCode == REQUEST_CODE_MEDIA_PROJECTION) {
+            if (resultCode == Activity.RESULT_OK) {
+                permissionGranted = true;
+                mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
+                prepareRecording();
+                startRecording();
+            }
         }
-        if (resultCode != RESULT_OK) {
-            Toast.makeText(this, "Screen Cast Permission Denied :(", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
-        // TODO Register a callback that will listen onStop and release & prepare the recorder for next recording
-        // mMediaProjection.registerCallback(callback, null);
-        mVirtualDisplay = getVirtualDisplay();
-        mMediaRecorder.start();
     }
-    private VirtualDisplay getVirtualDisplay() {
-        int screenDensity = mDisplayMetrics.densityDpi;
-        int width = mDisplayMetrics.widthPixels;
-        int height = mDisplayMetrics.heightPixels;
-
-        return mMediaProjection.createVirtualDisplay(this.getClass().getSimpleName(),
-                width, height, screenDensity,
+    private void getVirtualDisplay() {
+        mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
+                mDisplayMetrics.widthPixels,
+                mDisplayMetrics.heightPixels,
+                DisplayMetrics.DENSITY_HIGH,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 mMediaRecorder.getSurface(), null, null);
     }

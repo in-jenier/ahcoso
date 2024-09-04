@@ -3,7 +3,7 @@ package com.coraducci.ahcoso.utils;
 import com.coraducci.ahcoso.R;
 
 public class Costants {
-    public static final String BUCKET = "AYoS.preferences";
+    public static final String BUCKET = "AhCoso.preferences";
     public static final int SERVICE_ID_CAMERA = 101;
     public static final String CHANNEL_ID_CAMERA = "com.coraducci.ahcoso.camera";;
     public static String CHAR_SPACE = " ";
