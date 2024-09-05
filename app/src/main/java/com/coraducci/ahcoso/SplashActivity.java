@@ -36,10 +36,10 @@ public class SplashActivity extends AppCompatActivity {
     private final int REQUEST_CODE_POST_NOTIFICATIONS = 111;
 
     private Boolean permissionToCamera = true;
-    private Boolean permissionToWriteExternalStorage = true;
-    private Boolean permissionToReadExternalStorage = true;
-    private Boolean permissionToManageExternalStorage = true;
-    private Boolean permissionToPostNotification = true;
+    private Boolean permissionToWriteExternalStorage = false;
+    private Boolean permissionToReadExternalStorage = false;
+    private Boolean permissionToManageExternalStorage = false;
+    private Boolean permissionToPostNotification = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -141,10 +141,8 @@ public class SplashActivity extends AppCompatActivity {
                 && permissionToReadExternalStorage
                 && permissionToPostNotification){
             tol.Print(TAG, "permissionsGranted", true, true);
-            AvviaServizio();
-        }else{
-            checkPermissions();
         }
+        checkPermissions();
     }
     private void AvviaServizio(){
         if (!ServiceHelpder.InRunning(CONTEXT, CameraService.class)) {
