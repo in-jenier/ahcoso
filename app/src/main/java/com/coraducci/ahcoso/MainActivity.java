@@ -12,9 +12,14 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.PixelFormat;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.CamcorderProfile;
+import android.media.ImageReader;
+import android.media.MediaCodec;
 import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
@@ -22,6 +27,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
+import android.provider.MediaStore;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.Surface;
@@ -68,18 +74,17 @@ public class MainActivity extends AppCompatActivity {
     boolean boundService = false;
 
     private final int REQUEST_CODE_MEDIA_PROJECTION = 112;
-    private DisplayMetrics mDisplayMetrics;
     private MediaProjection mMediaProjection;
     private VirtualDisplay mVirtualDisplay;
     private MediaRecorder mMediaRecorder;
     private MediaProjectionManager mProjectionManager;
     private boolean permissionGranted = false;
-    private boolean virtualDisplay = false;
+    private int mVideoDensity;
+    private int mVideoWidth;
+    private int mVideoHeight;
 
     private static final String STATE_RESULT_CODE = "result_code";
     private static final String STATE_RESULT_DATA = "result_data";
-    private int mResultCode;
-    private Intent mResultData;
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @SuppressLint("RestrictedApi")
@@ -123,13 +128,10 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    @SuppressLint("NewApi")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) {
-            mResultCode = savedInstanceState.getInt(STATE_RESULT_CODE);
-            mResultData = savedInstanceState.getParcelable(STATE_RESULT_DATA);
-        }
         setContentView(R.layout.activity_main);
 
         CONTEXT = getApplicationContext();
@@ -149,10 +151,21 @@ public class MainActivity extends AppCompatActivity {
 
         Objects.requireNonNull(getSupportActionBar()).hide();
 
-        mDisplayMetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(mDisplayMetrics);
+        //mDisplayMetrics = new DisplayMetrics();
+        //getWindowManager().getDefaultDisplay().getRealMetrics(mDisplayMetrics);
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        mVideoDensity = displayMetrics.densityDpi;
+        if(displayMetrics.widthPixels == 1080){
+            mVideoWidth = 1080;
+            mVideoHeight = 1920;
+        }else{
+            mVideoWidth = 1920;
+            mVideoHeight = 1080;
+        }
+        tol.Print(TAG, "widthPixels:"+mVideoWidth, false, true);
+        tol.Print(TAG, "heightPixels:"+mVideoHeight, false, true);
+        tol.Print(TAG, "densityDpi:"+mVideoDensity, false, true);
         mProjectionManager = (MediaProjectionManager) getSystemService (Context.MEDIA_PROJECTION_SERVICE);
-
     }
 
     @Override
@@ -164,10 +177,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (mResultData != null) {
-            outState.putInt(STATE_RESULT_CODE, mResultCode);
-            outState.putParcelable(STATE_RESULT_DATA, mResultData);
-        }
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -223,6 +232,7 @@ public class MainActivity extends AppCompatActivity {
         sendBroadcastTo.send();
     }
 
+    @SuppressLint("NewApi")
     private void prepareRecording() {
         String directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).getAbsolutePath() + File.separator;
         tol.Print(TAG, "path:"+directory, false, true);
@@ -269,18 +279,14 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+        mMediaRecorder.setOutputFile(filePath);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        //mMediaRecorder.setVideoEncodingBitRate(512 * 1000);
-        //CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
-        //profile.videoFrameWidth = mDisplayMetrics.widthPixels;
-        //profile.videoFrameHeight = mDisplayMetrics.heightPixels;
-        //mMediaRecorder.setProfile(profile);
         mMediaRecorder.setMaxDuration(10000);
-        mMediaRecorder.setVideoSize(mDisplayMetrics.widthPixels, mDisplayMetrics.heightPixels);
-        mMediaRecorder.setVideoFrameRate(30);
-        mMediaRecorder.setOutputFile(filePath);
+        mMediaRecorder.setVideoSize(mVideoWidth, mVideoHeight);
+        //mMediaRecorder.setVideoFrameRate(5);
+        //mMediaRecorder.setVideoEncodingBitRate(512 * 1000);
 
         try {
             mMediaRecorder.prepare();
@@ -291,10 +297,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void startRecording() {
         tol.Print(TAG, "startRecording", false, true);
-        //if(!virtualDisplay) {
-            getVirtualDisplay();
-            virtualDisplay = true;
-        //}
+        getVirtualDisplay();
         mMediaRecorder.start();
     }
     private void stopRecording() {
@@ -323,10 +326,8 @@ public class MainActivity extends AppCompatActivity {
         tol.Print(TAG, "resultCode:" + resultCode, false, true);
         if (requestCode == REQUEST_CODE_MEDIA_PROJECTION) {
             if (resultCode == Activity.RESULT_OK) {
-                mResultCode = resultCode;
-                mResultData = data;
                 permissionGranted = true;
-                mMediaProjection = mProjectionManager.getMediaProjection(mResultCode, mResultData);
+                mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
                 prepareRecording();
                 startRecording();
             }
@@ -335,11 +336,12 @@ public class MainActivity extends AppCompatActivity {
     private void getVirtualDisplay() {
         cleanVirtualDisplay();
         mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
-                mDisplayMetrics.widthPixels,
-                mDisplayMetrics.heightPixels,
-                DisplayMetrics.DENSITY_HIGH,
+                mVideoWidth,
+                mVideoHeight,
+                mVideoDensity,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 mMediaRecorder.getSurface(), null, null);
+
     }
     private void cleanVirtualDisplay(){
         if(mVirtualDisplay != null) {
