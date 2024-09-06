@@ -79,9 +79,7 @@ public class MainActivity extends AppCompatActivity {
     private MediaRecorder mMediaRecorder;
     private MediaProjectionManager mProjectionManager;
     private boolean permissionGranted = false;
-    private int mVideoDensity;
-    private int mVideoWidth;
-    private int mVideoHeight;
+    private DisplayMetrics mDisplayMetrics;
 
     private static final String STATE_RESULT_CODE = "result_code";
     private static final String STATE_RESULT_DATA = "result_data";
@@ -151,20 +149,10 @@ public class MainActivity extends AppCompatActivity {
 
         Objects.requireNonNull(getSupportActionBar()).hide();
 
-        //mDisplayMetrics = new DisplayMetrics();
-        //getWindowManager().getDefaultDisplay().getRealMetrics(mDisplayMetrics);
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-        mVideoDensity = displayMetrics.densityDpi;
-        if(displayMetrics.widthPixels == 1080){
-            mVideoWidth = 1080;
-            mVideoHeight = 1920;
-        }else{
-            mVideoWidth = 1920;
-            mVideoHeight = 1080;
-        }
-        tol.Print(TAG, "widthPixels:"+mVideoWidth, false, true);
-        tol.Print(TAG, "heightPixels:"+mVideoHeight, false, true);
-        tol.Print(TAG, "densityDpi:"+mVideoDensity, false, true);
+        getWindowManager().getDefaultDisplay().getMetrics(mDisplayMetrics);
+        tol.Print(TAG, "widthPixels:"+mDisplayMetrics.widthPixels, false, true);
+        tol.Print(TAG, "heightPixels:"+mDisplayMetrics.heightPixels, false, true);
+        tol.Print(TAG, "densityDpi:"+mDisplayMetrics.densityDpi, false, true);
         mProjectionManager = (MediaProjectionManager) getSystemService (Context.MEDIA_PROJECTION_SERVICE);
     }
 
@@ -284,7 +272,7 @@ public class MainActivity extends AppCompatActivity {
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         mMediaRecorder.setMaxDuration(10000);
-        mMediaRecorder.setVideoSize(mVideoWidth, mVideoHeight);
+        mMediaRecorder.setVideoSize(mDisplayMetrics.widthPixels, mDisplayMetrics.heightPixels);
         //mMediaRecorder.setVideoFrameRate(5);
         //mMediaRecorder.setVideoEncodingBitRate(512 * 1000);
 
@@ -336,9 +324,9 @@ public class MainActivity extends AppCompatActivity {
     private void getVirtualDisplay() {
         cleanVirtualDisplay();
         mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
-                mVideoWidth,
-                mVideoHeight,
-                mVideoDensity,
+                mDisplayMetrics.widthPixels,
+                mDisplayMetrics.heightPixels,
+                mDisplayMetrics.densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 mMediaRecorder.getSurface(), null, null);
 
