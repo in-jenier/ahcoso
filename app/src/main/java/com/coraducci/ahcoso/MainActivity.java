@@ -149,6 +149,7 @@ public class MainActivity extends AppCompatActivity {
 
         Objects.requireNonNull(getSupportActionBar()).hide();
 
+        mDisplayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(mDisplayMetrics);
         tol.Print(TAG, "widthPixels:"+mDisplayMetrics.widthPixels, false, true);
         tol.Print(TAG, "heightPixels:"+mDisplayMetrics.heightPixels, false, true);
